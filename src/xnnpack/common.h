@@ -45,6 +45,12 @@
   #define XNN_ARCH_PPC64 0
 #endif
 
+#if defined(__riscv) || defined(__riscv__)
+  #define XNN_ARCH_RISCV 1
+#else
+  #define XNN_ARCH_RISCV 0
+#endif
+
 #if defined(__wasm__)
   #if defined(__wasm_simd128__)
     #define XNN_ARCH_WASMSIMD 1
@@ -194,6 +200,12 @@
   #define XNN_DISABLE_TSAN __attribute__((__no_sanitize__("thread")))
 #else
   #define XNN_DISABLE_TSAN
+#endif
+
+#if XNN_COMPILER_HAS_FEATURE(memory_sanitizer)
+  #define XNN_DISABLE_MSAN __attribute__((__no_sanitize__("memory")))
+#else
+  #define XNN_DISABLE_MSAN
 #endif
 
 #if defined(__GNUC__)

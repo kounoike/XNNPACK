@@ -48,6 +48,21 @@ struct xnn_value {
   enum xnn_value_type type;
   /// Type of elements in the collection.
   enum xnn_datatype datatype;
+  /// Per-value quantization parameters.
+  struct {
+    /// Offset from zero of the quantized elements.
+    int32_t zero_point;
+    union {
+      /// Multiplication factor to convert quantized elements to real representation.
+      float scale;
+      struct {
+        /// Per-channel multiplication factor to convert quantized elements to real representation.
+        const float* channelwise_scale;
+        /// Index of the channel dimension with per-channel quantization parameters.
+        size_t channel_dimension;
+      };
+    };
+  } quantization;
   /// Tensor shape.
   struct xnn_shape shape;
   /// Binary features of the tensor. Supported values are any combination of:

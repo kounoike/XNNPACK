@@ -26,6 +26,8 @@ const char* xnn_operator_type_to_string(enum xnn_operator_type type) {
       return "Add (ND, F32)";
     case xnn_operator_type_add_nd_qs8:
       return "Add (ND, QS8)";
+    case xnn_operator_type_add_nd_qu8:
+      return "Add (ND, QU8)";
     case xnn_operator_type_argmax_pooling_nhwc_f32:
       return "ArgMax Pooling (NHWC, F32)";
     case xnn_operator_type_average_pooling_nhwc_f32:
@@ -50,6 +52,8 @@ const char* xnn_operator_type_to_string(enum xnn_operator_type type) {
       return "Convolution (NHWC, F16)";
     case xnn_operator_type_convolution_nhwc_f32:
       return "Convolution (NHWC, F32)";
+    case xnn_operator_type_convolution_nhwc_qc8:
+      return "Convolution (NHWC, QC8)";
     case xnn_operator_type_convolution_nhwc_qs8:
       return "Convolution (NHWC, QS8)";
     case xnn_operator_type_convolution_nhwc_qu8:
@@ -60,6 +64,8 @@ const char* xnn_operator_type_to_string(enum xnn_operator_type type) {
       return "Copy (NC, X32)";
     case xnn_operator_type_deconvolution_nhwc_f32:
       return "Deconvolution (NHWC, F32)";
+    case xnn_operator_type_deconvolution_nhwc_qs8:
+      return "Deconvolution (NHWC, QS8)";
     case xnn_operator_type_deconvolution_nhwc_qu8:
       return "Deconvolution (NHWC, QU8)";
     case xnn_operator_type_depth_to_space_nchw2nhwc_x32:
@@ -74,6 +80,8 @@ const char* xnn_operator_type_to_string(enum xnn_operator_type type) {
       return "Floor (NC, F32)";
     case xnn_operator_type_fully_connected_nc_f32:
       return "Fully Connected (NC, F32)";
+    case xnn_operator_type_fully_connected_nc_qs8:
+      return "Fully Connected (NC, QS8)";
     case xnn_operator_type_fully_connected_nc_qu8:
       return "Fully Connected (NC, QU8)";
     case xnn_operator_type_global_average_pooling_nwc_f16:
@@ -106,6 +114,10 @@ const char* xnn_operator_type_to_string(enum xnn_operator_type type) {
       return "Multiply (ND, F16)";
     case xnn_operator_type_multiply_nd_f32:
       return "Multiply (ND, F32)";
+    case xnn_operator_type_multiply_nd_qs8:
+      return "Multiply (ND, QS8)";
+    case xnn_operator_type_multiply_nd_qu8:
+      return "Multiply (ND, QU8)";
     case xnn_operator_type_negate_nc_f32:
       return "Negate (NC, F32)";
     case xnn_operator_type_prelu_nc_f32:

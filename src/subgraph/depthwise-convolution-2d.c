@@ -13,6 +13,56 @@
 #include <xnnpack/subgraph.h>
 
 
+static inline bool check_datatypes_with_bias(
+  enum xnn_datatype input_datatype,
+  enum xnn_datatype filter_datatype,
+  enum xnn_datatype bias_datatype,
+  enum xnn_datatype output_datatype)
+{
+  switch (filter_datatype) {
+    case xnn_datatype_fp32:
+      return input_datatype == xnn_datatype_fp32 &&
+        bias_datatype == xnn_datatype_fp32 && output_datatype == xnn_datatype_fp32;
+#ifndef XNN_NO_QS8_OPERATORS
+    case xnn_datatype_qint8:
+      return input_datatype == xnn_datatype_qint8 &&
+        bias_datatype == xnn_datatype_qint32 && output_datatype == xnn_datatype_qint8;
+    case xnn_datatype_qcint8:
+      return input_datatype == xnn_datatype_qint8 &&
+        bias_datatype == xnn_datatype_qcint32 && output_datatype == xnn_datatype_qint8;
+#endif  // !defined(XNN_NO_QS8_OPERATORS)
+#ifndef XNN_NO_QU8_OPERATORS
+    case xnn_datatype_quint8:
+      return input_datatype == xnn_datatype_quint8 &&
+        bias_datatype == xnn_datatype_qint32 && output_datatype == xnn_datatype_quint8;
+#endif  // !defined(XNN_NO_QU8_OPERATORS)
+    default:
+      XNN_UNREACHABLE;
+  }
+}
+
+static inline bool check_datatypes_without_bias(
+  enum xnn_datatype input_datatype,
+  enum xnn_datatype filter_datatype,
+  enum xnn_datatype output_datatype)
+{
+  switch (filter_datatype) {
+    case xnn_datatype_fp32:
+      return input_datatype == xnn_datatype_fp32 && output_datatype == xnn_datatype_fp32;
+#ifndef XNN_NO_QS8_OPERATORS
+    case xnn_datatype_qint8:
+    case xnn_datatype_qcint8:
+      return input_datatype == xnn_datatype_qint8 && output_datatype == xnn_datatype_qint8;
+#endif  // !defined(XNN_NO_QS8_OPERATORS)
+#ifndef XNN_NO_QU8_OPERATORS
+    case xnn_datatype_quint8:
+      return input_datatype == xnn_datatype_quint8 && output_datatype == xnn_datatype_quint8;
+#endif  // !defined(XNN_NO_QU8_OPERATORS)
+    default:
+      XNN_UNREACHABLE;
+  }
+}
+
 enum xnn_status xnn_define_depthwise_convolution_2d(
   xnn_subgraph_t subgraph,
   uint32_t input_padding_top,
@@ -134,6 +184,31 @@ enum xnn_status xnn_define_depthwise_convolution_2d(
     return xnn_status_invalid_parameter;
   }
 
+  const struct xnn_value* input_value = &subgraph->values[input_id];
+  if (input_value->type != xnn_value_type_dense_tensor) {
+    xnn_log_error(
+      "failed to define %s operator with input ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
+      xnn_node_type_to_string(xnn_node_type_depthwise_convolution_2d), input_id, input_value->type);
+    return xnn_status_invalid_parameter;
+  }
+
+  switch (input_value->datatype) {
+    case xnn_datatype_fp32:
+#ifndef XNN_NO_QS8_OPERATORS
+    case xnn_datatype_qint8:
+#endif  // !defined(XNN_NO_QS8_OPERATORS)
+#ifndef XNN_NO_QU8_OPERATORS
+    case xnn_datatype_quint8:
+#endif  // !defined(XNN_NO_QU8_OPERATORS)
+      break;
+    default:
+      xnn_log_error(
+        "failed to define %s operator with input ID #%" PRIu32 ": unsupported Value datatype %s (%d)",
+        xnn_node_type_to_string(xnn_node_type_depthwise_convolution_2d), input_id,
+        xnn_datatype_to_string(input_value->datatype), input_value->datatype);
+      return xnn_status_invalid_parameter;
+  }
+
   if (filter_id >= subgraph->num_values) {
     xnn_log_error(
       "failed to define %s operator with filter ID #%" PRIu32 ": invalid Value ID",
@@ -141,11 +216,88 @@ enum xnn_status xnn_define_depthwise_convolution_2d(
     return xnn_status_invalid_parameter;
   }
 
-  if (bias_id >= subgraph->num_values) {
+  const struct xnn_value* filter_value = &subgraph->values[filter_id];
+  if (filter_value->type != xnn_value_type_dense_tensor) {
     xnn_log_error(
-      "failed to define %s operator with bias ID #%" PRIu32 ": invalid Value ID",
-      xnn_node_type_to_string(xnn_node_type_depthwise_convolution_2d), bias_id);
+      "failed to define %s operator with filter ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
+      xnn_node_type_to_string(xnn_node_type_depthwise_convolution_2d), filter_id, filter_value->type);
     return xnn_status_invalid_parameter;
+  }
+
+  if (filter_value->data == NULL) {
+    xnn_log_error(
+      "failed to define %s operator with filter ID #%" PRIu32 ": non-static Value",
+      xnn_node_type_to_string(xnn_node_type_depthwise_convolution_2d), filter_id);
+    return xnn_status_invalid_parameter;
+  }
+
+  switch (filter_value->datatype) {
+    case xnn_datatype_fp32:
+      break;
+#ifndef XNN_NO_QS8_OPERATORS
+    case xnn_datatype_qint8:
+      if (filter_value->quantization.zero_point != 0) {
+        xnn_log_error(
+          "failed to define %s operator with filter ID #%" PRIu32 ": unsupported quantization zero point %" PRId32 " for datatype %s",
+          xnn_node_type_to_string(xnn_node_type_depthwise_convolution_2d), filter_id,
+          filter_value->quantization.zero_point, xnn_datatype_to_string(filter_value->datatype));
+      }
+      break;
+    case xnn_datatype_qcint8:
+      break;
+#endif  // !defined(XNN_NO_QS8_OPERATORS)
+#ifndef XNN_NO_QU8_OPERATORS
+    case xnn_datatype_quint8:
+      break;
+#endif  // !defined(XNN_NO_QU8_OPERATORS)
+    default:
+      xnn_log_error(
+        "failed to define %s operator with filter ID #%" PRIu32 ": unsupported Value datatype %s (%d)",
+        xnn_node_type_to_string(xnn_node_type_depthwise_convolution_2d), filter_id,
+        xnn_datatype_to_string(filter_value->datatype), filter_value->datatype);
+      return xnn_status_invalid_parameter;
+  }
+
+  const struct xnn_value* bias_value = NULL;
+  if (bias_id != XNN_INVALID_VALUE_ID) {
+    if (bias_id >= subgraph->num_values) {
+      xnn_log_error(
+        "failed to define %s operator with bias ID #%" PRIu32 ": invalid Value ID",
+        xnn_node_type_to_string(xnn_node_type_depthwise_convolution_2d), bias_id);
+      return xnn_status_invalid_parameter;
+    }
+
+    bias_value = &subgraph->values[bias_id];
+    if (bias_value->type != xnn_value_type_dense_tensor) {
+      xnn_log_error(
+        "failed to define %s operator with bias ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
+        xnn_node_type_to_string(xnn_node_type_depthwise_convolution_2d), bias_id, bias_value->type);
+      return xnn_status_invalid_parameter;
+    }
+
+    if (bias_value->data == NULL) {
+      xnn_log_error(
+        "failed to define %s operator with bias ID #%" PRIu32 ": non-static Value",
+        xnn_node_type_to_string(xnn_node_type_depthwise_convolution_2d), bias_id);
+      return xnn_status_invalid_parameter;
+    }
+
+    switch (bias_value->datatype) {
+      case xnn_datatype_fp32:
+#if !defined(XNN_NO_QS8_OPERATORS) || !defined(XNN_NO_QU8_OPERATORS)
+      case xnn_datatype_qint32:
+#endif  // !defined(XNN_NO_QS8_OPERATORS) || !defined(XNN_NO_QU8_OPERATORS)
+#ifndef XNN_NO_QS8_OPERATORS
+      case xnn_datatype_qcint32:
+#endif  // !defined(XNN_NO_QS8_OPERATORS)
+        break;
+      default:
+        xnn_log_error(
+          "failed to define %s operator with bias ID #%" PRIu32 ": unsupported Value datatype %s (%d)",
+          xnn_node_type_to_string(xnn_node_type_depthwise_convolution_2d), bias_id,
+          xnn_datatype_to_string(bias_value->datatype), bias_value->datatype);
+        return xnn_status_invalid_parameter;
+    }
   }
 
   if (output_id >= subgraph->num_values) {
@@ -154,6 +306,77 @@ enum xnn_status xnn_define_depthwise_convolution_2d(
       xnn_node_type_to_string(xnn_node_type_depthwise_convolution_2d), output_id);
     return xnn_status_invalid_parameter;
   }
+
+  const struct xnn_value* output_value = &subgraph->values[output_id];
+  if (output_value->type != xnn_value_type_dense_tensor) {
+    xnn_log_error(
+      "failed to define %s operator with output ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
+      xnn_node_type_to_string(xnn_node_type_depthwise_convolution_2d), output_id, output_value->type);
+    return xnn_status_invalid_parameter;
+  }
+
+  switch (output_value->datatype) {
+    case xnn_datatype_fp32:
+#ifndef XNN_NO_QS8_OPERATORS
+    case xnn_datatype_qint8:
+#endif  // !defined(XNN_NO_QS8_OPERATORS)
+#ifndef XNN_NO_QU8_OPERATORS
+    case xnn_datatype_quint8:
+#endif  // !defined(XNN_NO_QU8_OPERATORS)
+      break;
+    default:
+      xnn_log_error(
+        "failed to define %s operator with output ID #%" PRIu32 ": unsupported Value datatype %s (%d)",
+        xnn_node_type_to_string(xnn_node_type_depthwise_convolution_2d), output_id,
+        xnn_datatype_to_string(output_value->datatype), output_value->datatype);
+      return xnn_status_invalid_parameter;
+  }
+
+  if (bias_value != NULL) {
+    if (!check_datatypes_with_bias(input_value->datatype, filter_value->datatype, bias_value->datatype, output_value->datatype)) {
+      xnn_log_error(
+        "failed to define %s operator with input ID #%" PRIu32 ", filter ID #%" PRIu32 ", bias ID #%" PRIu32 ", and output ID #%" PRIu32
+        ": mismatching datatypes across input (%s), filter (%s), bias (%s), and output (%s)",
+        xnn_node_type_to_string(xnn_node_type_depthwise_convolution_2d), input_id, filter_id, bias_id, output_id,
+        xnn_datatype_to_string(input_value->datatype),
+        xnn_datatype_to_string(filter_value->datatype),
+        xnn_datatype_to_string(bias_value->datatype),
+        xnn_datatype_to_string(output_value->datatype));
+      return xnn_status_invalid_parameter;
+    }
+  } else {
+    if (!check_datatypes_without_bias(input_value->datatype, filter_value->datatype, output_value->datatype)) {
+      xnn_log_error(
+        "failed to define %s operator with input ID #%" PRIu32 ", filter ID #%" PRIu32 ", and output ID #%" PRIu32
+        ": mismatching datatypes across input (%s), filter (%s), and output (%s)",
+        xnn_node_type_to_string(xnn_node_type_depthwise_convolution_2d), input_id, filter_id, output_id,
+        xnn_datatype_to_string(input_value->datatype),
+        xnn_datatype_to_string(filter_value->datatype),
+        xnn_datatype_to_string(output_value->datatype));
+      return xnn_status_invalid_parameter;
+    }
+  }
+
+#ifndef XNN_NO_QS8_OPERATORS
+  if (filter_value->datatype == xnn_datatype_qcint8) {
+    if (filter_value->quantization.channel_dimension != filter_value->shape.num_dims - 1) {
+      xnn_log_error(
+        "failed to define %s operator with filter ID #%" PRIu32 ": invalid channel dimension %zu",
+        xnn_node_type_to_string(xnn_node_type_convolution_2d), input_id, filter_value->quantization.channel_dimension);
+      return xnn_status_invalid_parameter;
+    }
+
+    if (bias_value != NULL) {
+      assert(bias_value->datatype == xnn_datatype_qcint32);
+      if (bias_value->quantization.channel_dimension != 0) {
+        xnn_log_error(
+          "failed to define %s operator with bias ID #%" PRIu32 ": invalid channel dimension %zu",
+          xnn_node_type_to_string(xnn_node_type_convolution_2d), bias_id, bias_value->quantization.channel_dimension);
+        return xnn_status_invalid_parameter;
+      }
+    }
+  }
+#endif  // !defined(XNN_NO_QS8_OPERATORS)
 
   struct xnn_node* node = xnn_subgraph_new_node(subgraph);
   if (node == NULL) {
@@ -175,7 +398,7 @@ enum xnn_status xnn_define_depthwise_convolution_2d(
   node->params.depthwise_convolution_2d.input_channels = input_channels;
   node->activation.output_min = output_min;
   node->activation.output_max = output_max;
-  node->num_inputs = 3;
+  node->num_inputs = 2 + (size_t) (bias_id != XNN_INVALID_VALUE_ID);
   node->inputs[0] = input_id;
   node->inputs[1] = filter_id;
   node->inputs[2] = bias_id;

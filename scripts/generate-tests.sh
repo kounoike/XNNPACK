@@ -4,13 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-### Tests for QU8 micro-kernels
-tools/generate-gemm-test.py --spec test/qu8-gemm-minmax.yaml --output test/qu8-gemm-minmax.cc
-tools/generate-gemm-test.py --spec test/qu8-igemm-minmax.yaml --output test/qu8-igemm-minmax.cc
-tools/generate-dwconv-test.py --spec test/qu8-dwconv-minmax.yaml --output test/qu8-dwconv-minmax.cc
-
 ### Tests for U8 micro-kernels
-tools/generate-clamp-test.py --spec test/u8-clamp.yaml --output test/u8-clamp.cc
+tools/generate-vunary-test.py --spec test/u8-vclamp.yaml --output test/u8-vclamp.cc
 
 ### Tests for packing micro-kernels
 tools/generate-pack-test.py --spec test/x32-packx.yaml --output test/x32-packx.cc

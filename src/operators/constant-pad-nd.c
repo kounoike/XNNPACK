@@ -46,6 +46,7 @@ static enum xnn_status create_constant_pad_nd(
   constant_pad_op->pad_value = padding_value;
 
   constant_pad_op->type = operator_type;
+  constant_pad_op->flags = flags;
 
   constant_pad_op->state = xnn_run_state_invalid;
 
@@ -147,8 +148,8 @@ static enum xnn_status setup_constant_pad_nd(
     .input = input,
     .output = output,
     .padding_value = constant_pad_op->pad_value,
-    .fill_ukernel = xnn_params.x32.fill.ukernel,
-    .pad_ukernel = xnn_params.x32.pad.ukernel,
+    .fill_ukernel = xnn_params.xx.fill.ukernel,
+    .pad_ukernel = xnn_params.xx.pad.ukernel,
   };
 
   for (size_t i = 0; i < XNN_MAX_TENSOR_DIMS; i++) {

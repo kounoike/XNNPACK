@@ -22,7 +22,7 @@
 #include <xnnpack/params.h>
 
 
-class VBinOpCMicrokernelTester {
+class VBinaryCMicrokernelTester {
  public:
   enum class OpType {
     AddC,
@@ -41,7 +41,7 @@ class VBinOpCMicrokernelTester {
     Scalar,
   };
 
-  inline VBinOpCMicrokernelTester& batch_size(size_t batch_size) {
+  inline VBinaryCMicrokernelTester& batch_size(size_t batch_size) {
     assert(batch_size != 0);
     this->batch_size_ = batch_size;
     return *this;
@@ -51,7 +51,7 @@ class VBinOpCMicrokernelTester {
     return this->batch_size_;
   }
 
-  inline VBinOpCMicrokernelTester& inplace(bool inplace) {
+  inline VBinaryCMicrokernelTester& inplace(bool inplace) {
     this->inplace_ = inplace;
     return *this;
   }
@@ -60,7 +60,7 @@ class VBinOpCMicrokernelTester {
     return this->inplace_;
   }
 
-  inline VBinOpCMicrokernelTester& qmin(uint8_t qmin) {
+  inline VBinaryCMicrokernelTester& qmin(uint8_t qmin) {
     this->qmin_ = qmin;
     return *this;
   }
@@ -69,7 +69,7 @@ class VBinOpCMicrokernelTester {
     return this->qmin_;
   }
 
-  inline VBinOpCMicrokernelTester& qmax(uint8_t qmax) {
+  inline VBinaryCMicrokernelTester& qmax(uint8_t qmax) {
     this->qmax_ = qmax;
     return *this;
   }
@@ -78,7 +78,7 @@ class VBinOpCMicrokernelTester {
     return this->qmax_;
   }
 
-  inline VBinOpCMicrokernelTester& iterations(size_t iterations) {
+  inline VBinaryCMicrokernelTester& iterations(size_t iterations) {
     this->iterations_ = iterations;
     return *this;
   }
@@ -90,7 +90,7 @@ class VBinOpCMicrokernelTester {
   void Test(xnn_f16_vbinary_ukernel_function vbinaryc, OpType op_type) const {
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto f32rng = std::bind(std::uniform_real_distribution<float>(1.0e-2f, 1.0f), rng);
+    auto f32rng = std::bind(std::uniform_real_distribution<float>(1.0e-3f, 1.0f), rng);
     auto f16rng = std::bind(fp16_ieee_from_fp32_value, f32rng);
 
     std::vector<uint16_t> a(batch_size() + XNN_EXTRA_BYTES / sizeof(uint16_t));
@@ -155,7 +155,7 @@ class VBinOpCMicrokernelTester {
   void Test(xnn_f16_vbinary_minmax_ukernel_function vbinaryc_minmax, OpType op_type) const {
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto f32rng = std::bind(std::uniform_real_distribution<float>(0.0f, 1.0f), rng);
+    auto f32rng = std::bind(std::uniform_real_distribution<float>(1.0e-3f, 1.0f), rng);
     auto f16rng = std::bind(fp16_ieee_from_fp32_value, f32rng);
 
     std::vector<uint16_t> a(batch_size() + XNN_EXTRA_BYTES / sizeof(uint16_t));
@@ -220,9 +220,11 @@ class VBinOpCMicrokernelTester {
       }
 
       // Prepare parameters.
-      xnn_f16_minmax_params params = xnn_init_f16_minmax_params(
-         fp16_ieee_from_fp32_value(y_min),
-         fp16_ieee_from_fp32_value(y_max));
+      xnn_f16_minmax_params params;
+      xnn_init_f16_minmax_params(
+        &params,
+        fp16_ieee_from_fp32_value(y_min),
+        fp16_ieee_from_fp32_value(y_max));
 
       // Call optimized micro-kernel.
       vbinaryc_minmax(batch_size() * sizeof(uint16_t), a_data, &b, y.data(), &params);
@@ -366,13 +368,13 @@ class VBinOpCMicrokernelTester {
       }
 
       // Prepare parameters.
-      xnn_f32_minmax_params params = { };
+      xnn_f32_minmax_params params;
       switch (variant) {
         case Variant::Native:
-          params = xnn_init_f32_minmax_params(y_min, y_max);
+          xnn_init_f32_minmax_params(&params, y_min, y_max);
           break;
         case Variant::Scalar:
-          params = xnn_init_scalar_f32_minmax_params(y_min, y_max);
+          xnn_init_f32_minmax_scalar_params(&params, y_min, y_max);
           break;
       }
 

@@ -84,11 +84,11 @@ static void IGEMMBenchmark(benchmark::State& state,
     benchmark::utils::DivideRoundUp<size_t>(benchmark::utils::GetMaxCacheSize(),
       sizeof(uint16_t) * (w_elements + c_elements) + sizeof(void*) * i_elements);
 
-  std::vector<uint16_t, AlignedAllocator<uint16_t, 32>> w(w_elements * num_buffers);
+  std::vector<uint16_t, AlignedAllocator<uint16_t, 64>> w(w_elements * num_buffers);
   std::fill(w.begin(), w.end(), 0);
   xnn_pack_f16_conv_goki_w(
     1 /* groups */, group_output_channels, kernel_size, group_input_channels,
-    nr, kr, sr, k.data(), b.data(), w.data(), nullptr);
+    nr, kr, sr, k.data(), b.data(), w.data(), 0 /* extra bytes */, nullptr);
   for (size_t n = 1; n < num_buffers; n++) {
     std::copy(w.cbegin(), w.cbegin() + w_elements, w.begin() + n * w_elements);
   }
@@ -124,7 +124,8 @@ static void IGEMMBenchmark(benchmark::State& state,
 
   // Prepare minmax parameters.
   xnn_f16_scaleminmax_params params;
-  params = xnn_init_f16_scaleminmax_params(
+  xnn_init_f16_scaleminmax_params(
+    &params,
     UINT16_C(0x3C00),  /* 1.0 */
     UINT16_C(0x7C00),  /* inf */
     UINT16_C(0xFC00)); /* -inf */
